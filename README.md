@@ -119,10 +119,8 @@ Step 3: Execute the Process
 Click the "Execute" button. The application will now read the data from sample_input.csv, process it using Pandas, and generate a plot with Matplotlib.
 
 Expected Outcome
-A line graph will be rendered directly within the application's main window, occupying the previously blank canvas area. This visual output represents the data contained in the sample file. The final result should match the image provided in Screenshot.png.
-
-!(Screenshot.png)
-
+A line graph will be rendered directly within the application's main window, occupying the previously blank canvas area. This visual output represents the data contained in the sample file. The final result should match the dashboard in deployed application.
+https://execution-app.vercel.app/                                                                                                                                                                                                              
 This guided walkthrough intentionally leverages the provided assets to create a closed-loop demonstration. By using the known-good input (sample_input.csv) to achieve the known-good output (Screenshot.png), the process removes all ambiguity and potential for user error. This guarantees a positive and successful first interaction with the application, immediately validating the installation and showcasing the project as a polished, working product.
 
 Section 5: Repository Structure and Asset Manifest
