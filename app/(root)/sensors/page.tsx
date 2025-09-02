@@ -44,8 +44,6 @@ type SensorFormProps = {
 };
 
 function SensorForm({ sensor, onSave, onCancel }: SensorFormProps) {
-  const {user} = useUser();
-  const router = useRouter();
   const [zones, setZones] = useState<{ id: number; name: string }[]>([]);
   const [loadingZones, setLoadingZones] = useState(true);
 
@@ -74,9 +72,7 @@ function SensorForm({ sensor, onSave, onCancel }: SensorFormProps) {
     fetchZones();
   }, []);
 
-  useEffect(() => {
-    if(!user) router.push('/login');
-  }, [user, router]);
+
 
   const handleChange = <K extends keyof typeof formData>(
     field: K,
@@ -163,11 +159,15 @@ function SensorForm({ sensor, onSave, onCancel }: SensorFormProps) {
 }
 
 export default function SensorsPage() {
+  const {user} = useUser();
+  const router = useRouter();
   const [sensors, setSensors] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingSensor, setEditingSensor] = useState<any>(null);
-
+  useEffect(() => {
+    if(!user) router.push('/login');
+  }, [user, router]);
   useEffect(() => {
     loadData();
   }, []);
@@ -188,17 +188,9 @@ export default function SensorsPage() {
   const handleSave = async (sensorData: any) => {
     try {
       if (editingSensor) {
-        await fetch(`/api/sensors/${editingSensor.id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(sensorData),
-        });
+        await axiosInstance.put(`/sensors/${editingSensor.id}`, sensorData);
       } else {
-        await fetch(`/api/sensors`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(sensorData),
-        });
+        await axiosInstance.post("/sensors", sensorData);
       }
       loadData();
     } catch (err) {
@@ -212,7 +204,7 @@ export default function SensorsPage() {
   const handleDelete = async (sensorId: number) => {
     if (confirm("Are you sure you want to delete this sensor?")) {
       try {
-        await fetch(`/api/sensors/${sensorId}`, { method: "DELETE" });
+        await axiosInstance.delete(`/api/sensors/${sensorId}`);
         loadData();
       } catch (err) {
         console.error("Failed to delete sensor:", err);

@@ -20,7 +20,7 @@ async function getUserFromRequest(req: NextRequest) {
       WHERE id = $1
       LIMIT 1
       `,
-      [decoded.userId.userId.userId.userId]
+      [decoded.userId]
     );
 
     if (!rows.length) {
