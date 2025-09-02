@@ -40,6 +40,14 @@ export interface Reading {
   created_at: string; // ISO timestamp
 }
 
+export interface User {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  password: string
+}
+
 // -----------------------------
 // Request/Response Schemas
 // -----------------------------
@@ -70,3 +78,11 @@ export interface ReadingResponse {
     avg_temperature_c: number;
     avg_humidity_pct: number;
   }
+
+export interface UserResponse{
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  imageUrl: string;
+}

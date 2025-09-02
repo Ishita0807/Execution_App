@@ -6,7 +6,39 @@ import {
   SensorProfileEnum,
 } from "@/types/models";
 import { evaluateStatus, computeProfile } from "@/lib/utilities";
+import jwt from 'jsonwebtoken';
 
+async function getUserFromRequest(req: NextRequest) {
+  try {
+    const authHeader = req.headers.get("authorization");
+    if (!authHeader) return null;
+
+    const token = authHeader.replace("Bearer ", "");
+    const decoded: any = jwt.verify(token, process.env.JWT_SECRET as string);
+    const rows = await query<{
+      id: string;
+      email: string;
+      password: string;
+    }>(
+      `
+      SELECT id, email, password
+      FROM "user"
+      WHERE id = $1
+      LIMIT 1
+      `,
+      [decoded.userId]
+    );
+
+    if (!rows.length) {
+      return NextResponse.json({ error: "Invalid credentials." }, { status: 401 });
+    }
+
+    const user = rows[0];
+    return user;
+  } catch {
+    return null;
+  }
+}
 // ---------- POST /api/record ----------
 export async function POST(req: NextRequest) {
   try {
@@ -100,6 +132,10 @@ export async function POST(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   try {
+    const user = await getUserFromRequest(req);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    } 
     const { searchParams } = new URL(req.url);
     const zone = searchParams.get("zone"); // optional
     const limit = parseInt(searchParams.get("limit") || "1", 10);

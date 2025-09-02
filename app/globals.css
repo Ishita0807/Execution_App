@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono&display=swap');
 @import "tailwindcss";
 @import "tw-animate-css";
 
@@ -121,7 +122,6 @@
   }
 }
 
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono&display=swap');
 
 .font-mono {
   font-family: 'JetBrains Mono', monospace;
