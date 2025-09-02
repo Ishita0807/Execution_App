@@ -1,259 +1,289 @@
-"use client";
-
-import React, { useState, useEffect } from "react";
-import { Zone, Sensor } from "@/types/models";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Thermometer, AlertTriangle, CheckCircle, Radio } from "lucide-react";
+import React, { useEffect, useState } from "react";
 import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-} from "recharts";
-import { format } from "date-fns";
-import LastUpdated from "@/components/dashboard/LastUpdated";
+  Box,
+  Button,
+  TextField,
+  Typography,
+  useMediaQuery,
+} from "@mui/material";
+import { DataGrid } from "@mui/x-data-grid";
+import Header from "../components/Header";
+import { useSelector } from "react-redux";
 
-import StatusCard from "@/components/dashboard/StatusCard";
-import ZoneOverview from "@/components/dashboard/ZoneOverview";
-import SensorHealth from "@/components/dashboard/SensorHealth";
-import LiveReadings from "@/components/dashboard/LiveReadings";
-import axiosInstance from "@/utils/axiosInstance";
-import { useUser } from "@/providers/usercontext";
-import { useRouter } from "next/navigation";
+const Zones = () => {
+  const [zones, setZones] = useState([]);
+  const [zone, setZone] = useState("");
+  const [head, setHead] = useState("");
+  const [mobile, setMobile] = useState("");
+  const [anganwadis, setAnganwadis] = useState("");
+  const [newUsers, setNewUsers] = useState("");
+  const [edit, setEdit] = useState(false);
+  const [editId, setEditId] = useState("");
+  const token = useSelector((state) => state.token);
+  const { _id } = useSelector((state) => state.user);
+  const isNonMobile = useMediaQuery("(min-width:600px)");
 
-export default function Dashboard() {
-  const { user } = useUser();
-  const [zones, setZones] = useState<Zone[]>([]);
-  const [sensors, setSensors] = useState<Sensor[]>([]);
-  const [readings, setReadings] = useState<
-    {
-      timestamp: string;
-      zone: string;
-      status: string;
-      avg_temperature_c: number;
-      avg_humidity_pct: number;
-    }[]
-  >([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [prevAlerts, setPrevAlerts] = useState<string[]>([]);
-  const router = useRouter();
-
-  useEffect(() => {
-    loadData();
-    const interval = setInterval(loadData, 30000); // refresh every 30s
-    return () => clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-    if (!user) {
-      router.push("/login");
-    }
-  }, [user, router]);
-
-  const loadData = async () => {
-    setIsLoading(true);
-    try {
-      const [zonesRes, sensorsRes, readingsRes] = await Promise.all([
-        axiosInstance.get("/zones").then((r) => r.data),
-        axiosInstance.get("/sensors").then((r) => r.data),
-        axiosInstance.get("/record?limit=200&order=desc").then((r) => r.data),
-      ]);
-      setZones(zonesRes);
-      setSensors(sensorsRes);
-      setReadings(readingsRes);
-    } catch (err) {
-      console.error("Error loading data:", err);
-    }
-    setIsLoading(false);
+  const getZones = async () => {
+    // FIX: Changed the hardcoded localhost URL to a relative path.
+    const response = await fetch("/zones", {
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await response.json();
+    setZones(data);
   };
 
-  // ----------------------------
-  // Derived metrics
-  // ----------------------------
-  const activeSensors = sensors.filter((s) => s.status === "active").length;
+  const deleteZone = async (id) => {
+    // FIX: Changed the hardcoded localhost URL to a relative path.
+    const response = await fetch(`/zones/${id}/delete`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await response.json();
+    setZones(data);
+  };
 
-  // Build "alerts" dynamically from readings
-  const alerts = readings.filter(
-    (r) => r.status && r.status !== "ALL WITHIN RANGE"
-  );
-  const criticalAlerts = alerts.filter(
-    (a) =>
-      a.status === "SENSOR FAILURE" ||
-      a.status.includes("Exceeded") ||
-      a.status.includes("Too High") ||
-      a.status.includes("Too Low")
-  ).length;
-  const warningAlerts = alerts.length - criticalAlerts;
-
-  // Chart data (last 24 readings)
-  const recentReadings = readings
-    .slice(0, 24)
-    .reverse()
-    .map((reading) => ({
-      time: format(new Date(reading.timestamp), "HH:mm"),
-      temperature: reading.avg_temperature_c,
-      humidity: reading.avg_humidity_pct,
-      zone: reading.zone,
-    }));
-
-  // ----------------------------
-  // Alert Email Logic
-  // ----------------------------
-  useEffect(() => {
-    if (!user || alerts.length === 0) return;
-
-    // Define today's start (midnight)
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-
-    // Only today's alerts
-    const todaysAlerts = alerts.filter(
-      (a) => new Date(a.timestamp) >= todayStart
-    );
-
-    if (todaysAlerts.length === 0) return;
-
-    // Unique keys for deduplication
-    const currentAlertKeys = todaysAlerts.map(
-      (a) => `${a.zone}-${a.status}-${a.timestamp}`
-    );
-
-    const newAlerts = todaysAlerts.filter(
-      (a) => !prevAlerts.includes(`${a.zone}-${a.status}-${a.timestamp}`)
-    );
-
-    if (newAlerts.length > 0) {
-      axiosInstance
-        .post("/send-alert-email", {
-          email: user.email,
-          alerts: newAlerts, // 👈 now sending full objects
-        })
-        .then(() => console.log("Alert email sent"))
-        .catch((err) => console.error("Error sending alert email:", err));
-
-      setPrevAlerts(currentAlertKeys);
+  const handleFormSubmit = async () => {
+    if (edit) {
+      // FIX: Changed the hardcoded localhost URL to a relative path.
+      const response = await fetch("/zones/update", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          id: editId,
+          name: zone,
+          head,
+          mobile,
+          anganwadis,
+          newUsers,
+        }),
+      });
+      const data = await response.json();
+      setZones(data);
+    } else {
+      // FIX: Changed the hardcoded localhost URL to a relative path.
+      const response = await fetch("/zones/create", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: zone,
+          userId: _id,
+          head,
+          mobile,
+          anganwadis,
+          newUsers,
+        }),
+      });
+      const data = await response.json();
+      setZones(data);
     }
-  }, [alerts, user, prevAlerts]);
+    setZone("");
+    setHead("");
+    setMobile("");
+    setAnganwadis("");
+    setNewUsers("");
+    setEdit(false);
+    setEditId("");
+  };
 
-  // ----------------------------
-  // Render
-  // ----------------------------
+  const editZone = (id) => {
+    setEdit(true);
+    setEditId(id);
+    const editZone = zones.find((zone) => zone._id === id);
+    setZone(editZone.name);
+    setHead(editZone.head);
+    setMobile(editZone.mobile);
+    setAnganwadis(editZone.anganwadis);
+    setNewUsers(editZone.newUsers);
+  };
+
+  useEffect(() => {
+    getZones();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const columns = [
+    {
+      field: "name",
+      headerName: "Name",
+      flex: 1,
+    },
+    {
+      field: "head",
+      headerName: "Zone Head",
+      flex: 1,
+    },
+    {
+      field: "mobile",
+      headerName: "Mobile Number",
+      flex: 1,
+    },
+    {
+      field: "anganwadis",
+      headerName: "Anganwadis",
+      flex: 1,
+    },
+    {
+      field: "newUsers",
+      headerName: "New Users",
+      flex: 1,
+    },
+    {
+      field: "user",
+      headerName: "Added By",
+      flex: 1,
+    },
+    {
+      field: "edit",
+      headerName: "Edit",
+      flex: 0.5,
+      renderCell: (params) => {
+        return (
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={() => editZone(params.row._id)}
+          >
+            Edit
+          </Button>
+        );
+      },
+    },
+    {
+      field: "delete",
+      headerName: "Delete",
+      flex: 0.5,
+      renderCell: (params) => {
+        return (
+          <Button
+            variant="contained"
+            color="secondary"
+            onClick={() => deleteZone(params.row._id)}
+          >
+            Delete
+          </Button>
+        );
+      },
+    },
+  ];
+
   return (
-    <div className="p-6 space-y-6 bg-gradient-to-br from-slate-50 to-blue-50 min-h-screen">
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">
-            Cold Storage Dashboard
-          </h1>
-          <p className="text-slate-600">
-            Real-time warehouse monitoring and alerts
-          </p>
-        </div>
-        <LastUpdated />
-      </div>
-
-      {/* Status Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <StatusCard
-          title="Active Sensors"
-          value={activeSensors}
-          total={sensors.length}
-          icon={Radio}
-          color="teal"
-          trend="98% uptime"
+    <Box m="1.5rem 2.5rem">
+      <Header title="ZONES" subtitle="Managing the zones and adding new zones" />
+      <Box
+        mt="40px"
+        height="75vh"
+        sx={{
+          "& .MuiDataGrid-root": {
+            border: "none",
+          },
+          "& .MuiDataGrid-cell": {
+            borderBottom: "none",
+          },
+          "& .MuiDataGrid-columnHeaders": {
+            backgroundColor: "#00353E",
+            color: "white",
+            borderBottom: "none",
+          },
+          "& .MuiDataGrid-virtualScroller": {
+            backgroundColor: "#f0f2f5",
+          },
+          "& .MuiDataGrid-footerContainer": {
+            backgroundColor: "#00353E",
+            color: "white",
+            borderTop: "none",
+          },
+          "& .MuiDataGrid-toolbarContainer .MuiButton-text": {
+            color: `grey !important`,
+          },
+        }}
+      >
+        <DataGrid
+          getRowId={(row) => row._id}
+          rows={zones || []}
+          columns={columns}
         />
-        <StatusCard
-          title="Active Alerts"
-          value={alerts.length}
-          total={readings.length}
-          icon={AlertTriangle}
-          color={
-            criticalAlerts > 0 ? "red" : warningAlerts > 0 ? "yellow" : "green"
-          }
-          trend={
-            criticalAlerts > 0
-              ? `${criticalAlerts} critical`
-              : warningAlerts > 0
-              ? `${warningAlerts} warnings`
-              : "All normal"
-          }
-        />
-        <StatusCard
-          title="System Health"
-          value={
-            activeSensors > 0
-              ? Math.round((activeSensors / sensors.length) * 100)
-              : 0
-          }
-          total={activeSensors}
-          unit="%"
-          icon={CheckCircle}
-          color="green"
-          trend="Excellent"
-        />
-      </div>
-
-      {/* Main Content */}
-      <div className="grid lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
-          <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Thermometer className="w-5 h-5 text-blue-500" />
-                Temperature & Humidity Trends
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={recentReadings}>
-                  <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                  <XAxis dataKey="time" />
-                  <YAxis yAxisId="temp" orientation="left" />
-                  <YAxis yAxisId="humidity" orientation="right" />
-                  <Tooltip />
-                  <Legend />
-                  <Line
-                    yAxisId="temp"
-                    type="monotone"
-                    dataKey="temperature"
-                    stroke="#0ea5e9"
-                    strokeWidth={3}
-                    dot={{ fill: "#0ea5e9", strokeWidth: 2, r: 4 }}
-                    name="Temperature (°C)"
-                  />
-                  <Line
-                    yAxisId="humidity"
-                    type="monotone"
-                    dataKey="humidity"
-                    stroke="#14b8a6"
-                    strokeWidth={3}
-                    dot={{ fill: "#14b8a6", strokeWidth: 2, r: 4 }}
-                    name="Humidity (%)"
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-
-          <ZoneOverview
-            zones={zones}
-            readings={readings}
-            isLoading={isLoading}
+      </Box>
+      <Box
+        width={isNonMobile ? "50%" : "93%"}
+        p="2rem"
+        m="2rem auto"
+        borderRadius="1.5rem"
+        backgroundColor="#FFFFFF"
+        boxShadow="0px 0px 15px rgba(0, 0, 0, 0.1)"
+      >
+        <Typography fontWeight="500" variant="h5" sx={{ mb: "1.5rem" }}>
+          {edit ? "EDIT ZONE" : "ADD A NEW ZONE"}
+        </Typography>
+        <Box
+          display="grid"
+          gap="30px"
+          gridTemplateColumns="repeat(4, minmax(0, 1fr))"
+          sx={{
+            "& > div": {
+              gridColumn: isNonMobile ? undefined : "span 4",
+            },
+          }}
+        >
+          <TextField
+            label="Name"
+            onChange={(e) => setZone(e.target.value)}
+            value={zone}
+            name="name"
+            sx={{ gridColumn: "span 4" }}
           />
-        </div>
-
-        <div className="space-y-6">
-          <SensorHealth sensors={sensors} isLoading={isLoading} />
-          <LiveReadings
-            readings={readings.slice(0, 10)}
-            isLoading={isLoading}
+          <TextField
+            label="Zone Head"
+            onChange={(e) => setHead(e.target.value)}
+            value={head}
+            name="head"
+            sx={{ gridColumn: "span 4" }}
           />
-        </div>
-      </div>
-    </div>
+          <TextField
+            label="Mobile Number"
+            onChange={(e) => setMobile(e.target.value)}
+            value={mobile}
+            name="mobile"
+            sx={{ gridColumn: "span 4" }}
+          />
+          <TextField
+            label="Anganwadis"
+            onChange={(e) => setAnganwadis(e.target.value)}
+            value={anganwadis}
+            name="anganwadis"
+            sx={{ gridColumn: "span 4" }}
+          />
+          <TextField
+            label="New Users"
+            onChange={(e) => setNewUsers(e.target.value)}
+            value={newUsers}
+            name="newUsers"
+            sx={{ gridColumn: "span 4" }}
+          />
+        </Box>
+
+        <Button
+          fullWidth
+          type="submit"
+          onClick={handleFormSubmit}
+          sx={{
+            m: "2rem 0",
+            p: "1rem",
+            backgroundColor: "#00353E",
+            color: "white",
+            "&:hover": { backgroundColor: "#002A30" },
+          }}
+        >
+          {edit ? "EDIT ZONE" : "ADD ZONE"}
+        </Button>
+      </Box>
+    </Box>
   );
-}
+};
+
+export default Zones;

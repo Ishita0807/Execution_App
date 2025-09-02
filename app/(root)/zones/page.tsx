@@ -147,7 +147,7 @@ export default function ZonesPage() {
     if (editingZone) {
       await axiosInstance.put(`/zones/${editingZone.id}`, zoneData);
     } else {
-      await axios.post("/zones", zoneData);
+      await axiosInstance.post("/zones", zoneData);
     }
 
     setEditingZone(null);
@@ -157,7 +157,7 @@ export default function ZonesPage() {
 
   const handleDelete = async (zoneId: number) => {
     if (confirm("Are you sure you want to delete this zone?")) {
-      await axios.delete(`/zones/${zoneId}`);
+      await axiosInstance.delete(`/zones/${zoneId}`);
       loadZones();
     }
   };

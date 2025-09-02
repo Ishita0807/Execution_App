@@ -1,119 +1,153 @@
-"use client";
+import React, { useState } from "react";
+import {
+  Box,
+  Button,
+  TextField,
+  Typography,
+  useMediaQuery,
+} from "@mui/material";
+import { Formik } from "formik";
+import * as yup from "yup";
+import { useDispatch } from "react-redux";
+import { setLogin } from "../state";
+import { useNavigate } from "react-router-dom";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Eye, EyeOff, LogIn } from "lucide-react";
-import Link from "next/link";
-import axios from '../../../utils/axiosInstance'
-import { useUser } from "@/providers/usercontext";
+const loginSchema = yup.object().shape({
+  email: yup.string().email("invalid email").required("required"),
+  password: yup.string().required("required"),
+});
 
-export default function LoginPage() {
-  const {user} = useUser();
-  const router = useRouter();
-  const [showPassword, setShowPassword] = useState(false);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+const initialValuesLogin = {
+  email: "",
+  password: "",
+};
 
-  useEffect(() => {
-    if(user){
-      router.push('/')
-    }
-  }, [user, router])
+const Login = () => {
+  const [error, setError] = useState(null);
+  const isNonMobile = useMediaQuery("(min-width:600px)");
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
-
-    try {
-      const res = await axios.post("/auth/login", { email, password });
-      const { accessToken, refreshToken } = res.data;
-
-      localStorage.setItem("accessToken", accessToken);
-      localStorage.setItem("refreshToken", refreshToken);
-
-      router.push("/");
-    } catch (err: any) {
-      setError(err.response?.data?.error || "Login failed. Try again.");
-    } finally {
-      setLoading(false);
+  const login = async (values, onSubmitProps) => {
+    // FIX: Changed the hardcoded localhost URL to a relative path.
+    // This allows the API call to work in a deployed environment.
+    const loggedInResponse = await fetch("/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(values),
+    });
+    const loggedIn = await loggedInResponse.json();
+    onSubmitProps.resetForm();
+    if (loggedIn.token) {
+      dispatch(
+        setLogin({
+          user: loggedIn.user,
+          token: loggedIn.token,
+        })
+      );
+      navigate("/dashboard");
+    } else {
+      setError(loggedIn.msg);
     }
   };
 
+  const handleFormSubmit = async (values, onSubmitProps) => {
+    await login(values, onSubmitProps);
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-emerald-50/20 to-slate-100 p-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-sm border border-slate-200/60 p-8 space-y-6">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-slate-900 mb-2">Login</h1>
-          <p className="text-slate-600">Access your ColdStore Monitor dashboard</p>
-        </div>
-
-        <form className="space-y-4" onSubmit={handleLogin}>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Email
-            </label>
-            <Input
-              type="email"
-              placeholder="you@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Password
-            </label>
-            <div className="relative">
-              <Input
-                type={showPassword ? "text" : "password"}
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute inset-y-0 right-3 flex items-center text-slate-500 hover:text-slate-700"
+    <Box
+      width="100%"
+      minHeight="100vh"
+      p="1rem"
+      display="flex"
+      alignItems="center"
+      justifyContent="center"
+      backgroundColor="#f0f2f5"
+    >
+      <Box
+        width={isNonMobile ? "40%" : "95%"}
+        p="2rem"
+        borderRadius="1.5rem"
+        backgroundColor="white"
+        boxShadow="0px 0px 15px rgba(0, 0, 0, 0.1)"
+      >
+        <Typography fontWeight="500" variant="h3" sx={{ mb: "1.5rem" }}>
+          Welcome to the Execution App
+        </Typography>
+        <Formik
+          onSubmit={handleFormSubmit}
+          initialValues={initialValuesLogin}
+          validationSchema={loginSchema}
+        >
+          {({
+            values,
+            errors,
+            touched,
+            handleBlur,
+            handleChange,
+            handleSubmit,
+          }) => (
+            <form onSubmit={handleSubmit}>
+              <Box
+                display="grid"
+                gap="30px"
+                gridTemplateColumns="repeat(4, minmax(0, 1fr))"
+                sx={{
+                  "& > div": { gridColumn: isNonMobile ? undefined : "span 4" },
+                }}
               >
-                {showPassword ? (
-                  <EyeOff className="h-4 w-4" />
-                ) : (
-                  <Eye className="h-4 w-4" />
+                <TextField
+                  label="Email"
+                  onBlur={handleBlur}
+                  onChange={handleChange}
+                  value={values.email}
+                  name="email"
+                  error={Boolean(touched.email) && Boolean(errors.email)}
+                  helperText={touched.email && errors.email}
+                  sx={{ gridColumn: "span 4" }}
+                />
+                <TextField
+                  label="Password"
+                  type="password"
+                  onBlur={handleBlur}
+                  onChange={handleChange}
+                  value={values.password}
+                  name="password"
+                  error={
+                    Boolean(touched.password) && Boolean(errors.password)
+                  }
+                  helperText={touched.password && errors.password}
+                  sx={{ gridColumn: "span 4" }}
+                />
+              </Box>
+
+              <Box>
+                {error && (
+                  <Typography color="red" textAlign="center" mt="1rem">
+                    {error}
+                  </Typography>
                 )}
-              </button>
-            </div>
-          </div>
-
-          {error && <p className="text-sm text-red-600">{error}</p>}
-
-          <Button
-            type="submit"
-            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
-            disabled={loading}
-          >
-            <LogIn className="w-4 h-4 mr-2" />
-            {loading ? "Logging in..." : "Login"}
-          </Button>
-        </form>
-
-        <p className="text-sm text-slate-600 text-center">
-          Don&apos;t have an account?{" "}
-          <Link
-            href="/register"
-            className="text-emerald-600 hover:underline font-medium"
-          >
-            Sign up
-          </Link>
-        </p>
-      </div>
-    </div>
+                <Button
+                  fullWidth
+                  type="submit"
+                  sx={{
+                    m: "2rem 0",
+                    p: "1rem",
+                    backgroundColor: "#00353E",
+                    color: "white",
+                    "&:hover": { backgroundColor: "#002A30" },
+                  }}
+                >
+                  LOGIN
+                </Button>
+              </Box>
+            </form>
+          )}
+        </Formik>
+      </Box>
+    </Box>
   );
-}
+};
+
+export default Login;
